@@ -34,3 +34,31 @@ type AsyncResultBuilder() =
 [<AutoOpen>]
 module AsyncResultExpressionBuilder =
   let asyncResult = new AsyncResultBuilder()
+
+type ReaderAsyncResult<'TRead, 'T, 'TError> = Operation of ('TRead -> Async<Result<'T,'TError>>)
+
+module ReaderAsyncResult =
+  let map f (Operation action) =
+    let mapped auth =
+      action auth |> AsyncResult.map f
+    Operation mapped
+
+  let bind (f : 'a -> ReaderAsyncResult<'r,'b,'c>) (Operation action) =
+    let f' auth =
+      let f'' a =
+        let (Operation action') = f a
+        let res' = action' auth
+        res'
+      action auth |> AsyncResult.bind f''
+    Operation f'
+
+  let lift v =
+    Operation(fun _ -> AsyncResult.lift v)
+
+  let run (Operation action) auth =
+    action auth
+
+type ReaderAsyncResultBuilder<'TRead>() =
+  member this.Return(v) = ReaderAsyncResult.lift v
+  member this.ReturnFrom(v) = v
+  member this.Bind(m, f) = ReaderAsyncResult.bind f m
