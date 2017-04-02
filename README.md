@@ -1,5 +1,18 @@
 # asyncResult
 
+The asyncResult project contains utilities to hide the complexities of working with
+asynchronous operations that may fail. In particular, in contains
+
+* an `AsyncResult` module for working with values of type `Async<Result<'T, 'TError>>`.
+  Such values arise naturally when we perform asynchronous operations that may or may 
+  not succeed. For example, looking up a user in a database might result in an 
+  `Async<Result<User, unit>>` value, while calling an API over HTTP to purchase a product
+  might result in a value of type `Async<Result<Product, PurchaseFailure>>`.
+* a `ReaderAsyncResult` module for working with asynchronous operations that all require 
+  some piece of information and may or may not fail.
+
+## AsyncResult
+
 An `Async<Result<'T, 'TError>>` computation expression for F# 4.1 that makes it easier 
 to work with asynchronous operations that may fail.
 
@@ -11,7 +24,7 @@ The `AsyncResult` module includes
 * A [`traverse`](https://fsharpforfunandprofit.com/posts/elevated-world-4/#traverse) function.
 * An `asyncResult` computation expression.
 
-## Usage
+### Usage
 
 Assume that we have the following functions
 
@@ -55,3 +68,89 @@ where `AsyncResult.traverse` comes to the rescue:
 val users : Async<Result<User list,string>>
 
 ```
+
+## ReaderAsyncResult
+
+The `ReaderAsyncResult` module contains utilities for working with asynchronous 
+operations that all require some piece of information and may or may not fail.
+
+We encode this in a type:
+
+```
+type ReaderAsyncResult<'TRead, 'T, 'TError> = Operation of ('TRead -> Async<Result<'T,'TError>>)
+```
+
+This represents operations that take some piece of data, `'TRead`, and produce an asynchronous result.
+The `ReaderAsyncResult` module provides functions for working with such operations:
+
+* A `map` function.
+* A `bind` function.
+* A `lift` function.
+* The ability to create computation expressions for such operations.
+
+Now, that is all fairly generic, so let's try to be a bit more specific.
+
+Imagine that our application needs to call an external API over HTTP. This API 
+requires the client (our application) to pass an authorization token along with 
+each request. In our code, we represent this with a type
+
+```
+type AuthorizationToken = AuthorizationToken of string
+```
+
+Operations calling the external API then have type
+
+```
+AuthorizationToken -> Async<Result<'T,'TError>>
+```
+
+Now let's image we have a multitude of operations,
+of which some may take more arguments than the `AuthorizationToken`:
+
+```
+getOrderFromBasket : unit -> AuthorizationToken -> Async<Result<BasketOrder, Error>>
+placeOrder : BasketOrder -> AuthorizationToken -> Async<Result<Order, Error>>
+shipOrder : Order -> AuthorizationToken -> Async<Result<unit, Error>>
+cancelOrder : Order -> AuthorizationToken -> Async<Result<Order, Error>>
+```
+
+We can phrase these in terms of `ReaderAsyncResult<'TRead, 'T, 'TError>`:
+
+```
+getOrderFromBasket : unit -> ReaderAsyncResult<AuthorizationToken, BasketOrder, Error>
+placeOrder : BasketOrder -> ReaderAsyncResult<AuthorizationToken, Order, Error>
+shipOrder : Order -> ReaderAsyncResult<AuthorizationToken, unit, Error>
+cancelOrder : Order -> ReaderAsyncResult<AuthorizationToken, Order, Error>
+```
+
+By using a `ReaderAsyncResultBuilder<'TRead>`, we can now easily combine such functions:
+
+```
+let withApi = new ReaderAsyncResultBuilder<AuthorizationToken>()
+
+let purchase = withApi {
+  let! basketOrder = getBasketOrder()
+  let! order = placeOrder basketOrder
+  do! shipOrder order
+}
+```
+
+The result of this is
+
+```
+purchase : ReaderAsyncResult<AuthorizationToken, unit, Error>
+```
+
+At this point, `purchase` is just an operation that is ready to run. No calls to the HTTP API have been made yet, because we have never provided an `AuthorizationToken`. That's what we will do next. 
+
+The `ReaderAsyncResult` module contains a `run` function that we can use to execute the operation:
+
+```
+run : ReaderAsyncResult<'a, 'b, 'c> -> 'a -> Async<Result<'b,'c>>
+```
+
+Our `purchase` operation requires an `AuthorizationToken` to run, so that is what we will give it:
+
+```
+let authToken : AuthorizationToken = /* get auth token from somewhere */
+let result = authToken |> run purchase |> Async.RunSynchronously
