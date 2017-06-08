@@ -129,7 +129,7 @@ By using a `ReaderAsyncResultBuilder<'TRead>`, we can now easily combine such fu
 let withApi = new ReaderAsyncResultBuilder<AuthorizationToken>()
 
 let purchase = withApi {
-  let! basketOrder = getBasketOrder()
+  let! basketOrder = getOrderFromBasket()
   let! order = placeOrder basketOrder
   do! shipOrder order
 }
@@ -138,7 +138,7 @@ let purchase = withApi {
 The result of this is
 
 ```
-purchase : ReaderAsyncResult<AuthorizationToken, unit, Error>
+val purchase : ReaderAsyncResult<AuthorizationToken, unit, Error>
 ```
 
 At this point, `purchase` is just an operation that is ready to run. No calls to the HTTP API have been made yet, because we have never provided an `AuthorizationToken`. That's what we will do next. 
@@ -154,3 +154,6 @@ Our `purchase` operation requires an `AuthorizationToken` to run, so that is wha
 ```
 let authToken : AuthorizationToken = /* get auth token from somewhere */
 let result = authToken |> run purchase |> Async.RunSynchronously
+/* val result : Result<unit, Error> */
+```
+
