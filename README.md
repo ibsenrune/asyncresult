@@ -3,18 +3,17 @@
 The asyncResult project contains utilities to hide the complexities of working with
 asynchronous operations that may fail. In particular, in contains
 
-* an `AsyncResult` module for working with values of type `Async<Result<'T, 'TError>>`.
-  Such values arise naturally when we perform asynchronous operations that may or may 
-  not succeed. For example, looking up a user in a database might result in an 
-  `Async<Result<User, unit>>` value, while calling an API over HTTP to purchase a product
-  might result in a value of type `Async<Result<Product, PurchaseFailure>>`.
+* an `AsyncResult` module for working with asynchronous operations that may or may not succeed. 
 * a `ReaderAsyncResult` module for working with asynchronous operations that all require 
   some piece of information and may or may not fail.
 
 ## AsyncResult
 
-An `Async<Result<'T, 'TError>>` computation expression for F# 4.1 that makes it easier 
-to work with asynchronous operations that may fail.
+When working with asynchronous operations that may fail, you often end up with types of the form `Async<Result<'T, 'TError>>`. For example, looking up a user in a database might result in a value of type `Async<Result<User, unit>>`, while calling an API over HTTP to purchase a product might result in a value of type `Async<Result<Product, PurchaseFailure>>`.
+
+Both the `Result` and `Async` types are about control flow, so they are usually not the values you really care about - you care about the values they contain. Thus, you end up unwrapping them all the time. Even if you use the build in `async` workflow, which does make working with `Async` tolerable, there is still the `Result<'a,'b>` type to worry about. 
+
+The `AsyncResult` module provides functions and computation expressions to make working with these values a breeze, enabling you to easily create, transform, and unwrap such values, and with the `asyncResult` computation expression, you can easily build and combine long workfldows that produce such values.
 
 The `AsyncResult` module includes
 
