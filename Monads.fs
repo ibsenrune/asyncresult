@@ -39,24 +39,24 @@ type ReaderAsyncResult<'TRead, 'T, 'TError> = Operation of ('TRead -> Async<Resu
 
 module ReaderAsyncResult =
   let map f (Operation action) =
-    let mapped auth =
-      action auth |> AsyncResult.map f
+    let mapped r =
+      action r |> AsyncResult.map f
     Operation mapped
 
   let bind (f : 'a -> ReaderAsyncResult<'r,'b,'c>) (Operation action) =
-    let f' auth =
+    let f' r =
       let f'' a =
         let (Operation action') = f a
-        let res' = action' auth
+        let res' = action' r
         res'
-      action auth |> AsyncResult.bind f''
+      action r |> AsyncResult.bind f''
     Operation f'
 
   let lift v =
     Operation(fun _ -> AsyncResult.lift v)
 
-  let run (Operation action) auth =
-    action auth
+  let run (Operation action) r =
+    action r
 
 type ReaderAsyncResultBuilder<'TRead>() =
   member this.Return(v) = ReaderAsyncResult.lift v
